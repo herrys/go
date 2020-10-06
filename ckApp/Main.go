@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"time"
+	"container/list"
 )
 
 // Order is a basic class for an incoming order
@@ -23,8 +24,17 @@ type Orders struct {
 }
 
 type shelf struct {
-	temp     string
-	capacity int
+	temp         string
+	capacity     int
+	cookedOrders list
+}
+
+func (sh shelf) isFull() bool {
+	return
+}
+
+func (sh shelf) store(co cookedOrder) {
+
 }
 
 type cookedOrder struct {
@@ -41,7 +51,7 @@ type pickupEvent struct {
 }
 
 func (pe pickupEvent) do() {
-	fmt.Printf("Pickup Event courierId: %v\n", pe.courierID)
+	fmt.Printf("Pickup Event courierId:%v\n", pe.courierID)
 }
 
 type orderEvent struct {
@@ -52,15 +62,17 @@ func (oe orderEvent) do() {
 	fmt.Printf("Order Event id:%v name:%v\n", oe.ID, oe.Name)
 }
 
-func generatePickup(eventChannel chan string, count int) {
+func generatePickup(eventChannel chan event, count int) {
 	for i := 0; i < count; i++ {
 		msTime := rand.Intn(4000) + 2000
 		time.Sleep(time.Duration(msTime) * time.Millisecond)
-		eventChannel <- fmt.Sprintf("Pickup %v", i)
+		var puEvent pickupEvent
+		puEvent.courierID = i
+		eventChannel <- puEvent
 	}
 }
 
-func generateOrder(eventChannel chan string) {
+func generateOrder(eventChannel chan event) {
 	jsonFile, err := os.Open("/Users/sutanto/src/go/src/github.com/herrys/ckApp/orders.json")
 	if err != nil {
 		fmt.Println(err)
@@ -75,19 +87,21 @@ func generateOrder(eventChannel chan string) {
 
 	for i := 0; i < len(orders.Orders); i++ {
 		time.Sleep(500 * time.Millisecond)
-		fmt.Println(i, " Id: ", orders.Orders[i].ID, " Name: ", orders.Orders[i].Name)
-		eventChannel <- orders.Orders[i].ID
+		// fmt.Println(i, " Id: ", orders.Orders[i].ID, " Name: ", orders.Orders[i].Name)
+		var oEvent orderEvent
+		oEvent.Order = orders.Orders[i]
+		eventChannel <- oEvent
 	}
 	fmt.Println("Done")
 }
 
 func main() {
-	eventChannel := make(chan string)
+	eventChannel := make(chan event)
 	go generateOrder(eventChannel)
 	go generatePickup(eventChannel, 100)
 	for i := 0; i < 100; i++ {
-		id := <-eventChannel
-		fmt.Println(i, " Received: ", id)
+		e := <-eventChannel
+		e.do()
 	}
 	fmt.Println("Done")
 }
